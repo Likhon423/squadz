@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id String @id
+  username String @unique
+  avatar String?
+  name String?
+  description String?
+  createdAt DateTime @default(now())
+  
+  gamesFollowing GamesOnUsers[]
+  posts Post[]
+
+  friendships     Friend[]        @relation("UserAsFriend")
+  friendsOf       Friend[]        @relation("FriendOfUser")
+  sentRequests    FriendRequest[] @relation("SentRequests")
+  receivedRequests FriendRequest[] @relation("ReceivedRequests")
+
+  postsJoined UsersOnPosts[]
+  PendingApplication PendingApplication[]
+
+  notificationsSent  Notification[]  @relation("SenderNotifications")
+  notifications      Notification[]  @relation("RecipientNotifications")
+
+  messages      Message[]
+}
+
+model Friend {
+  id        Int     @id @default(autoincrement())
+  userId    String
+  friendId  String
+  createdAt DateTime @default(now())
+
+  user      User   @relation("UserAsFriend", fields: [userId], references: [id], onDelete: Cascade)
+  friend    User   @relation("FriendOfUser", fields: [friendId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, friendId])
+}
+
+
+model FriendRequest {
+  id          Int     @id @default(autoincrement())
+  senderId    String
+  receiverId  String
+  createdAt   DateTime @default(now())
+
+  sender      User   @relation("SentRequests", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver    User   @relation("ReceivedRequests", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, receiverId])
+}
+
+model Games {
+  id Int @id @default(autoincrement())
+  name String @db.VarChar(255)
+  desc String? @db.VarChar(500)
+  img String? @db.VarChar(255)
+  createdAt DateTime @default(now())
+  gameModes GameModes[]
+  followers GamesOnUsers[]
+  posts Post[]
+}
+
+model GamesOnUsers {
+  userId String
+  gameId Int
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game   Games  @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  @@id([userId, gameId])
+}
+
+model GameModes {
+  id Int @id @default(autoincrement())
+  name String
+  members Int
+  game Games @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  gameId Int
+  posts Post[]
+}
+
+model Post {
+  id          Int       @id @default(autoincrement())
+  desc        String?   @db.VarChar(1000)
+  img         String?
+  platform    String
+  region      String
+  type        String
+  privacy     String @default("PUBLIC")
+  password    String? 
+  createdAt   DateTime   @default(now())
+
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  gameId      Int
+  game        Games      @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  
+  gameModeId  Int
+  gameMode    GameModes  @relation(fields: [gameModeId], references: [id], onDelete: Cascade)
+  
+  users       UsersOnPosts[]
+
+  PendingApplication PendingApplication[]
+  notifications  Notification[]
+  messages      Message[]
+}
+
+model UsersOnPosts {
+  userId String
+  postId Int
+  
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  joinedAt DateTime @default(now())
+  
+  @@id([userId, postId])
+}
+
+model Message {
+  id          Int      @id @default(autoincrement())
+  content     String   @db.Text
+  createdAt   DateTime @default(now())
+
+  senderId    String
+  sender      User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  
+  postId      Int
+  post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+}
+
+model PendingApplication {
+  id        Int     @id @default(autoincrement())
+  userId    String
+  postId    Int
+  appliedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+}
+
+model Notification {
+  id         String   @id @default(cuid())
+  recipientId String
+  senderId   String
+  postId     Int?
+  type       String
+  message    String
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  recipient  User     @relation("RecipientNotifications", fields: [recipientId], references: [id])
+  sender     User     @relation("SenderNotifications", fields: [senderId], references: [id])
+  post       Post?    @relation(fields: [postId], references: [id])
+}
